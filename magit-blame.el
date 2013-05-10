@@ -96,11 +96,8 @@
   (if magit-blame-mode
       (progn
         (setq magit-blame-buffer-read-only buffer-read-only)
-        (magit-blame-file-on (current-buffer))
-        (set-buffer-modified-p nil)
-        (setq buffer-read-only t))
+        (magit-blame-file-on (current-buffer) "HEAD"))
     (magit-blame-file-off (current-buffer))
-    (set-buffer-modified-p nil)
     (setq buffer-read-only magit-blame-buffer-read-only)))
 
 (defun magit-blame-file-off (buffer)
@@ -111,18 +108,22 @@
         (mapc (lambda (ov)
                 (if (overlay-get ov :blame)
                     (delete-overlay ov)))
-              (overlays-in (point-min) (point-max)))))))
+              (overlays-in (point-min) (point-max)))
+        (set-buffer-modified-p nil)))))
 
-(defun magit-blame-file-on (buffer)
+(defun magit-blame-file-on (buffer sha1)
   (magit-blame-file-off buffer)
   (save-excursion
     (with-current-buffer buffer
+      (setq buffer-read-only nil)
       (save-restriction
         (with-temp-buffer
-          (magit-git-insert (list "blame" "--porcelain" "--"
+          (magit-git-insert (list "blame" "--porcelain" sha1 "--"
                                   (file-name-nondirectory
                                    (buffer-file-name buffer))))
-          (magit-blame-parse buffer (current-buffer)))))))
+          (magit-blame-parse buffer (current-buffer))))
+      (set-buffer-modified-p nil)
+      (setq buffer-read-only t))))
 
 (defun magit-blame-locate-commit (pos)
   "Jump to a commit in the branch history from an annotated blame section."
