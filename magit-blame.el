@@ -125,14 +125,36 @@
       (set-buffer-modified-p nil)
       (setq buffer-read-only t))))
 
-(defun magit-blame-locate-commit (pos)
-  "Jump to a commit in the branch history from an annotated blame section."
+(defun magit-blame-file-since (sha1)
+  (interactive "sBlame since revision: ")
+  (if (= (magit-git-exit-code
+          ;; TODO: Probably better ways to verify sha1 safe for
+          ;; blaming, but this should at least be faster than
+          ;; 'git blame sha1 -- file'
+          "show" (concat sha1 ":" (file-name-nondirectory buffer-file-name)))
+         0)
+      (magit-blame-file-on (current-buffer) sha1)
+    (message (concat "File does not exist in commit " sha1))))
+
+(defun magit-blame-previous-revision (pos)
   (interactive "d")
+  (let ((sha1 (magit-blame-sha1-from-overlay pos)))
+    (if sha1
+        (magit-blame-file-since (concat sha1 "^")))))
+
+(defun magit-blame-sha1-from-overlay (pos)
+  "Given an annotated blame section at POS, find the corresponding sha1"
   (let ((overlays (overlays-at pos))
         sha1)
     (dolist (ov overlays)
       (if (overlay-get ov :blame)
           (setq sha1 (plist-get (nth 3 (overlay-get ov :blame)) :sha1))))
+    sha1))
+
+(defun magit-blame-locate-commit (pos)
+  "Jump to a commit in the branch history from an annotated blame section."
+  (interactive "d")
+  (let ((sha1 (magit-blame-sha1-from-overlay pos)))
     (if sha1
         (magit-show-commit sha1))))
 
